@@ -1,3 +1,5 @@
+import "./src/registerEnv.ts";
+
 import express, { Request, Response, NextFunction } from "express";
 import path from "path";
 import { PrismaClient } from "@prisma/client";

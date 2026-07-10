@@ -3,6 +3,7 @@ import { Calendar, Tag, AlertTriangle, Edit2, Trash2, ShieldAlert } from 'lucide
 import { Notice } from '../types';
 
 interface NoticeCardProps {
+  key?: string;
   notice: Notice;
   onEdit: (notice: Notice) => void;
   onDelete: (id: string) => Promise<void>;
