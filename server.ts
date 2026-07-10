@@ -205,13 +205,17 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running at http://localhost:${PORT}`);
+    });
+  }
+}
+
+if (!process.env.VERCEL) {
+  startServer().catch((err) => {
+    console.error("Failed to start full-stack server:", err);
   });
 }
 
-startServer().catch((err) => {
-  console.error("Failed to start full-stack server:", err);
-});
-
-// Integrate Vite Middleware end
+export default app;
