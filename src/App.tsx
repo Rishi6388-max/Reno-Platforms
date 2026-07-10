@@ -78,8 +78,8 @@ export default function App() {
     setIsFormOpen(false);
   };
 
-  // Filter notices in-memory on the client (sorting remains database-native)
-  const filteredNotices = notices.filter((notice) => {
+  // Strict filtering based on search query AND active category/priority tabs
+  const strictFilteredNotices = notices.filter((notice) => {
     const matchesSearch =
       notice.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       notice.body.toLowerCase().includes(searchQuery.toLowerCase());
@@ -89,6 +89,23 @@ export default function App() {
 
     return matchesSearch && matchesCategory && matchesPriority;
   });
+
+  // Loose filtering based ONLY on search query (ignoring tabs)
+  const searchOnlyFilteredNotices = notices.filter((notice) => {
+    return (
+      notice.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      notice.body.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
+
+  // Detect if there's a conflict: search query typed, strict results are empty, but global search has results
+  const isConflicting =
+    searchQuery.trim() !== '' &&
+    strictFilteredNotices.length === 0 &&
+    searchOnlyFilteredNotices.length > 0;
+
+  // Final filtered notices: if conflicting, fall back to showing search results globally to avoid empty screen
+  const filteredNotices = isConflicting ? searchOnlyFilteredNotices : strictFilteredNotices;
 
   // Calculate statistics for Notice Board summary cards
   const urgentCount = notices.filter(n => n.priority === 'Urgent').length;
@@ -209,7 +226,10 @@ export default function App() {
                   <button
                     key={cat}
                     id={`filter-cat-${cat}`}
-                    onClick={() => setSelectedCategory(cat as any)}
+                    onClick={() => {
+                      setSelectedCategory(cat as any);
+                      setSearchQuery('');
+                    }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                       selectedCategory === cat
                         ? 'bg-blue-600 text-white shadow-sm shadow-blue-100'
@@ -230,7 +250,10 @@ export default function App() {
                   <button
                     key={pri}
                     id={`filter-pri-${pri}`}
-                    onClick={() => setSelectedPriority(pri as any)}
+                    onClick={() => {
+                      setSelectedPriority(pri as any);
+                      setSearchQuery('');
+                    }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                       selectedPriority === pri
                         ? 'bg-blue-600 text-white shadow-sm shadow-blue-100'
@@ -243,6 +266,28 @@ export default function App() {
               </div>
 
             </div>
+
+            {/* Filter Conflict Banner */}
+            {isConflicting && (
+              <div id="filter-conflict-banner" className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm transition-all animate-fade-in">
+                <div className="flex items-start sm:items-center gap-2.5">
+                  <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse mt-1.5 sm:mt-0 shrink-0"></div>
+                  <p className="font-medium text-amber-900">
+                    Showing search results globally. Active filters for Category (<span className="font-bold">{selectedCategory}</span>) and Priority (<span className="font-bold">{selectedPriority}</span>) are temporarily bypassed because no matches were found under them.
+                  </p>
+                </div>
+                <button
+                  id="bypass-clear-btn"
+                  onClick={() => {
+                    setSelectedCategory('All');
+                    setSelectedPriority('All');
+                  }}
+                  className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-950 rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-colors shrink-0 self-start sm:self-center"
+                >
+                  Reset Tab Filters
+                </button>
+              </div>
+            )}
 
             {/* Error banner */}
             {errorMsg && (
