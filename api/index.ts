@@ -1,4 +1,14 @@
-import "../src/registerEnv";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+// Ensure there's a fallback DATABASE_URL for Prisma Client generation if none is provided.
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "postgresql://placeholder_user:placeholder_pass@localhost:5432/notice_board?schema=public";
+  console.log("[Env Register] DATABASE_URL was not set at runtime. Using temporary placeholder.");
+} else {
+  console.log("[Env Register] DATABASE_URL is active at runtime.");
+}
 
 import express, { Request, Response, NextFunction } from "express";
 
@@ -133,7 +143,7 @@ function validateNotice(data: any) {
 }
 
 // 1. GET ALL NOTICES
-app.get("/api/notices", async (req: Request, res: Response) => {
+app.get(["/api/notices", "/notices"], async (req: Request, res: Response) => {
   if (isDatabaseConfigured()) {
     try {
       console.log("[Database] Attempting to retrieve notices from Prisma...");
@@ -167,7 +177,7 @@ app.get("/api/notices", async (req: Request, res: Response) => {
 });
 
 // 2. GET SINGLE NOTICE
-app.get("/api/notices/:id", async (req: Request, res: Response) => {
+app.get(["/api/notices/:id", "/notices/:id"], async (req: Request, res: Response) => {
   const { id } = req.params;
 
   if (isDatabaseConfigured()) {
@@ -200,7 +210,7 @@ app.get("/api/notices/:id", async (req: Request, res: Response) => {
 });
 
 // 3. CREATE NOTICE (POST)
-app.post("/api/notices", async (req: Request, res: Response) => {
+app.post(["/api/notices", "/notices"], async (req: Request, res: Response) => {
   const validation = validateNotice(req.body);
   if (!validation.isValid) {
     return res.status(400).json({ errors: validation.errors });
@@ -251,7 +261,7 @@ app.post("/api/notices", async (req: Request, res: Response) => {
 });
 
 // 4. UPDATE NOTICE (PUT)
-app.put("/api/notices/:id", async (req: Request, res: Response) => {
+app.put(["/api/notices/:id", "/notices/:id"], async (req: Request, res: Response) => {
   const { id } = req.params;
 
   const validation = validateNotice(req.body);
@@ -314,7 +324,7 @@ app.put("/api/notices/:id", async (req: Request, res: Response) => {
 });
 
 // 5. DELETE NOTICE (DELETE)
-app.delete("/api/notices/:id", async (req: Request, res: Response) => {
+app.delete(["/api/notices/:id", "/notices/:id"], async (req: Request, res: Response) => {
   const { id } = req.params;
 
   if (isDatabaseConfigured()) {

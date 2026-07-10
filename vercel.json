@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "api/**/*.ts": {
-      "includeFiles": "dev.db"
+      "includeFiles": "prisma/schema.prisma"
     }
   },
   "rewrites": [

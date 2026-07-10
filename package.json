@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "prisma generate && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "vercel-build": "prisma generate && (prisma db push || true) && vite build",
+    "vercel-build": "DATABASE_URL=\"postgresql://placeholder_user:placeholder_pass@localhost:5432/notice_board?schema=public\" prisma generate && (DATABASE_URL=\"postgresql://placeholder_user:placeholder_pass@localhost:5432/notice_board?schema=public\" prisma db push || true) && vite build",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit"
