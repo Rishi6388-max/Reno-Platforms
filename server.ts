@@ -213,3 +213,5 @@ async function startServer() {
 startServer().catch((err) => {
   console.error("Failed to start full-stack server:", err);
 });
+
+// Integrate Vite Middleware end
