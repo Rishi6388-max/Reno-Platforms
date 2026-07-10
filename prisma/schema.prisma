@@ -1,0 +1,18 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Notice {
+  id          String   @id @default(uuid())
+  title       String
+  body       String
+  category    String   // "Exam", "Event", "General"
+  priority    String   // "Normal", "Urgent"
+  publishDate DateTime
+  image       String?  // Optional base64 image or image URL
+  createdAt   DateTime @default(now())
+}

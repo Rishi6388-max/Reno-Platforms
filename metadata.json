@@ -1,0 +1,6 @@
+{
+  "name": "Notice Board",
+  "description": "A full-stack Notice Board with category tags, database-native urgent sorting, server-side validation, and base64 banners.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
