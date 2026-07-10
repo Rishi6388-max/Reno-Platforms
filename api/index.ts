@@ -1,10 +1,29 @@
 import "../src/registerEnv";
 
 import express, { Request, Response, NextFunction } from "express";
-import { PrismaClient } from "@prisma/client";
 
 const app = express();
-const prisma = new PrismaClient();
+
+// Safe lazy loading of Prisma Client to prevent module load-time crashes on Vercel
+let prismaInstance: any = null;
+let prismaLoadErrorLogged = false;
+
+async function getPrismaClient() {
+  if (prismaInstance) {
+    return prismaInstance;
+  }
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    prismaInstance = new PrismaClient();
+    return prismaInstance;
+  } catch (error: any) {
+    if (!prismaLoadErrorLogged) {
+      console.error("[Prisma Load Error] Failed to load PrismaClient module:", error.message || error);
+      prismaLoadErrorLogged = true;
+    }
+    return null;
+  }
+}
 
 // Support JSON payloads up to 10MB to handle base64 image uploads
 app.use(express.json({ limit: "10mb" }));
@@ -118,14 +137,19 @@ app.get("/api/notices", async (req: Request, res: Response) => {
   if (isDatabaseConfigured()) {
     try {
       console.log("[Database] Attempting to retrieve notices from Prisma...");
-      const notices = await prisma.notice.findMany({
-        orderBy: [
-          { priority: "desc" },
-          { publishDate: "desc" },
-        ],
-      });
-      console.log(`[Database] Successfully retrieved ${notices.length} notices.`);
-      return res.json(notices);
+      const prisma = await getPrismaClient();
+      if (prisma) {
+        const notices = await prisma.notice.findMany({
+          orderBy: [
+            { priority: "desc" },
+            { publishDate: "desc" },
+          ],
+        });
+        console.log(`[Database] Successfully retrieved ${notices.length} notices.`);
+        return res.json(notices);
+      } else {
+        console.warn("[Prisma Load Fail] Prisma client is null. Falling back to in-memory notices.");
+      }
     } catch (error: any) {
       console.error("[Database Connection Error] Failed to fetch notices from Postgres. Falling back to memory-based fallback notices.", error.message || error);
     }
@@ -149,14 +173,19 @@ app.get("/api/notices/:id", async (req: Request, res: Response) => {
   if (isDatabaseConfigured()) {
     try {
       console.log(`[Database] Attempting to retrieve notice with ID ${id}...`);
-      const notice = await prisma.notice.findUnique({
-        where: { id },
-      });
-      if (notice) {
-        return res.json(notice);
+      const prisma = await getPrismaClient();
+      if (prisma) {
+        const notice = await prisma.notice.findUnique({
+          where: { id },
+        });
+        if (notice) {
+          return res.json(notice);
+        }
+        // If we queried successfully but found nothing, return 404
+        return res.status(404).json({ error: "Notice not found." });
+      } else {
+        console.warn("[Prisma Load Fail] Prisma client is null. Checking mock store.");
       }
-      // If we queried successfully but found nothing, return 404
-      return res.status(404).json({ error: "Notice not found." });
     } catch (error: any) {
       console.error(`[Database Connection Error] Failed to query notice ID ${id} from Postgres. Checking in-memory notices.`, error.message || error);
     }
@@ -182,18 +211,23 @@ app.post("/api/notices", async (req: Request, res: Response) => {
   if (isDatabaseConfigured()) {
     try {
       console.log("[Database] Attempting to insert notice into Postgres...");
-      const newNotice = await prisma.notice.create({
-        data: {
-          title: title.trim(),
-          body: body.trim(),
-          category,
-          priority,
-          publishDate: new Date(publishDate),
-          image: image || null,
-        },
-      });
-      console.log("[Database] Successfully created notice with ID:", newNotice.id);
-      return res.status(201).json(newNotice);
+      const prisma = await getPrismaClient();
+      if (prisma) {
+        const newNotice = await prisma.notice.create({
+          data: {
+            title: title.trim(),
+            body: body.trim(),
+            category,
+            priority,
+            publishDate: new Date(publishDate),
+            image: image || null,
+          },
+        });
+        console.log("[Database] Successfully created notice with ID:", newNotice.id);
+        return res.status(201).json(newNotice);
+      } else {
+        console.warn("[Prisma Load Fail] Prisma client is null. Storing notice in memory.");
+      }
     } catch (error: any) {
       console.error("[Database Connection Error] Failed to create notice in Postgres. Persisting in memory-based store.", error.message || error);
     }
@@ -230,25 +264,30 @@ app.put("/api/notices/:id", async (req: Request, res: Response) => {
   if (isDatabaseConfigured()) {
     try {
       console.log(`[Database] Attempting to update notice with ID ${id} in Postgres...`);
-      // Verify existence first
-      const existing = await prisma.notice.findUnique({ where: { id } });
-      if (!existing) {
-        return res.status(404).json({ error: "Notice not found to update." });
-      }
+      const prisma = await getPrismaClient();
+      if (prisma) {
+        // Verify existence first
+        const existing = await prisma.notice.findUnique({ where: { id } });
+        if (!existing) {
+          return res.status(404).json({ error: "Notice not found to update." });
+        }
 
-      const updatedNotice = await prisma.notice.update({
-        where: { id },
-        data: {
-          title: title.trim(),
-          body: body.trim(),
-          category,
-          priority,
-          publishDate: new Date(publishDate),
-          image: image || null,
-        },
-      });
-      console.log("[Database] Successfully updated notice ID:", id);
-      return res.json(updatedNotice);
+        const updatedNotice = await prisma.notice.update({
+          where: { id },
+          data: {
+            title: title.trim(),
+            body: body.trim(),
+            category,
+            priority,
+            publishDate: new Date(publishDate),
+            image: image || null,
+          },
+        });
+        console.log("[Database] Successfully updated notice ID:", id);
+        return res.json(updatedNotice);
+      } else {
+        console.warn("[Prisma Load Fail] Prisma client is null. Updating mock store.");
+      }
     } catch (error: any) {
       console.error(`[Database Connection Error] Failed to update notice ID ${id} in Postgres. Editing in memory-based store.`, error.message || error);
     }
@@ -281,16 +320,21 @@ app.delete("/api/notices/:id", async (req: Request, res: Response) => {
   if (isDatabaseConfigured()) {
     try {
       console.log(`[Database] Attempting to delete notice with ID ${id} from Postgres...`);
-      const existing = await prisma.notice.findUnique({ where: { id } });
-      if (!existing) {
-        return res.status(404).json({ error: "Notice not found to delete." });
-      }
+      const prisma = await getPrismaClient();
+      if (prisma) {
+        const existing = await prisma.notice.findUnique({ where: { id } });
+        if (!existing) {
+          return res.status(404).json({ error: "Notice not found to delete." });
+        }
 
-      await prisma.notice.delete({
-        where: { id },
-      });
-      console.log("[Database] Successfully deleted notice with ID:", id);
-      return res.json({ success: true, message: "Notice deleted successfully from database." });
+        await prisma.notice.delete({
+          where: { id },
+        });
+        console.log("[Database] Successfully deleted notice with ID:", id);
+        return res.json({ success: true, message: "Notice deleted successfully from database." });
+      } else {
+        console.warn("[Prisma Load Fail] Prisma client is null. Deleting from mock store.");
+      }
     } catch (error: any) {
       console.error(`[Database Connection Error] Failed to delete notice ID ${id} from Postgres. Deleting from memory-based store.`, error.message || error);
     }
